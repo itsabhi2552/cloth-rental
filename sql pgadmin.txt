@@ -1,0 +1,979 @@
+--table:-
+
+
+
+-- Table: public.user_data
+
+-- DROP TABLE IF EXISTS public.user_data;
+
+CREATE TABLE IF NOT EXISTS public.user_data
+(
+    id integer NOT NULL GENERATED ALWAYS AS IDENTITY ( INCREMENT 1 START 1 MINVALUE 1 MAXVALUE 2147483647 CACHE 1 ),
+    name character varying(20) COLLATE pg_catalog."default" NOT NULL,
+    username character varying(20) COLLATE pg_catalog."default" NOT NULL,
+    password character varying COLLATE pg_catalog."default" NOT NULL,
+    email character varying(25) COLLATE pg_catalog."default" NOT NULL,
+    mobile_number character(10) COLLATE pg_catalog."default" NOT NULL,
+    location character varying COLLATE pg_catalog."default",
+    landmark character varying COLLATE pg_catalog."default",
+    district character varying COLLATE pg_catalog."default",
+    state character varying COLLATE pg_catalog."default",
+    country character varying COLLATE pg_catalog."default" DEFAULT 'India'::character varying,
+    pincode character(6) COLLATE pg_catalog."default",
+    image character varying COLLATE pg_catalog."default",
+    aadhar_number character(12) COLLATE pg_catalog."default",
+    aadhar_verified boolean DEFAULT 'false',
+    email_verified boolean DEFAULT 'false',
+    mobile_verified boolean DEFAULT 'false',
+    role character varying COLLATE pg_catalog."default" NOT NULL DEFAULT 'user'::character varying,
+    status character varying COLLATE pg_catalog."default" NOT NULL DEFAULT 'active'::character varying,
+    creation_date timestamp without time zone NOT NULL DEFAULT (CURRENT_TIMESTAMP(0))::timestamp without time zone,
+    CONSTRAINT userdata_pkey PRIMARY KEY (id),
+    CONSTRAINT userdata_email_key UNIQUE (email),
+    CONSTRAINT userdata_username_key UNIQUE (username)
+)
+
+TABLESPACE pg_default;
+
+ALTER TABLE IF EXISTS public.user_data
+    OWNER to postgres;
+-- Table: public.cloth_data
+
+-- DROP TABLE IF EXISTS public.cloth_data;
+
+CREATE TABLE IF NOT EXISTS public.cloth_data
+(
+    id integer NOT NULL GENERATED ALWAYS AS IDENTITY ( INCREMENT 1 START 1 MINVALUE 1 MAXVALUE 2147483647 CACHE 1 ),
+    name character varying COLLATE pg_catalog."default" NOT NULL,
+    renting_price double precision NOT NULL,
+    selling_price double precision NOT NULL,
+    stock integer NOT NULL,
+    category character varying COLLATE pg_catalog."default" NOT NULL,
+    section character varying COLLATE pg_catalog."default" NOT NULL,
+    gender character varying COLLATE pg_catalog."default" NOT NULL,
+    seller_id integer NOT NULL,
+    description character varying COLLATE pg_catalog."default" NOT NULL,
+    image character varying COLLATE pg_catalog."default" NOT NULL,
+    status character varying COLLATE pg_catalog."default" NOT NULL DEFAULT 'active'::character varying,
+    creation_date timestamp without time zone NOT NULL DEFAULT (CURRENT_TIMESTAMP(0))::timestamp without time zone,
+    CONSTRAINT cloths_pkey PRIMARY KEY (id),
+    CONSTRAINT cloths_seller_id_fkey FOREIGN KEY (seller_id)
+        REFERENCES public.user_data (id) MATCH SIMPLE
+        ON UPDATE NO ACTION
+        ON DELETE NO ACTION,
+    CONSTRAINT cloths_stock_check CHECK (stock >= 0)
+)
+
+TABLESPACE pg_default;
+
+ALTER TABLE IF EXISTS public.cloth_data
+    OWNER to postgres;
+
+-- Table: public.cart_data
+
+-- DROP TABLE IF EXISTS public.cart_data;
+
+CREATE TABLE IF NOT EXISTS public.cart_data
+(
+    id integer NOT NULL GENERATED ALWAYS AS IDENTITY ( INCREMENT 1 START 1 MINVALUE 1 MAXVALUE 2147483647 CACHE 1 ),
+    user_id integer NOT NULL,
+    cloth_id integer NOT NULL,
+    quantity integer NOT NULL DEFAULT 1,
+    purpose character varying COLLATE pg_catalog."default" NOT NULL,
+    renting_date date,
+    returning_date date,
+    status character varying COLLATE pg_catalog."default" NOT NULL DEFAULT 'active'::character varying,
+    creation_date timestamp without time zone NOT NULL DEFAULT (CURRENT_TIMESTAMP(0))::timestamp without time zone,
+    CONSTRAINT cart_data_pkey PRIMARY KEY (id),
+    CONSTRAINT cart_data_cloth_id_fkey FOREIGN KEY (cloth_id)
+        REFERENCES public.cloth_data (id) MATCH SIMPLE
+        ON UPDATE NO ACTION
+        ON DELETE NO ACTION,
+    CONSTRAINT cart_data_user_id_fkey FOREIGN KEY (user_id)
+        REFERENCES public.user_data (id) MATCH SIMPLE
+        ON UPDATE NO ACTION
+        ON DELETE NO ACTION,
+    CONSTRAINT cart_data_quantity_check CHECK (quantity > 0),
+    CONSTRAINT cart_data_check CHECK (returning_date > renting_date)
+)
+
+TABLESPACE pg_default;
+
+ALTER TABLE IF EXISTS public.cart_data
+    OWNER to postgres;
+
+-- Table: public.order_data
+
+-- DROP TABLE IF EXISTS public.order_data;
+
+CREATE TABLE IF NOT EXISTS public.order_data
+(
+    id integer NOT NULL GENERATED ALWAYS AS IDENTITY ( INCREMENT 1 START 1 MINVALUE 1 MAXVALUE 2147483647 CACHE 1 ),
+    user_id integer NOT NULL,
+    payment_id character varying COLLATE pg_catalog."default" NOT NULL,
+    cloth_id integer NOT NULL,
+    quantity integer NOT NULL,
+    total_price double precision NOT NULL,
+    delivery_boy_id integer,
+    pickup_address character varying COLLATE pg_catalog."default" NOT NULL,
+    delivery_address character varying COLLATE pg_catalog."default" NOT NULL,
+    status character varying COLLATE pg_catalog."default" NOT NULL DEFAULT 'pending'::character varying,
+    creation_date timestamp without time zone NOT NULL DEFAULT (CURRENT_TIMESTAMP(0))::timestamp without time zone,
+    CONSTRAINT order_data_pkey PRIMARY KEY (id),
+    CONSTRAINT order_data_cloth_id_fkey FOREIGN KEY (cloth_id)
+        REFERENCES public.cloth_data (id) MATCH SIMPLE
+        ON UPDATE NO ACTION
+        ON DELETE NO ACTION,
+    CONSTRAINT order_data_delivery_boy_id_fkey FOREIGN KEY (delivery_boy_id)
+        REFERENCES public.user_data (id) MATCH SIMPLE
+        ON UPDATE NO ACTION
+        ON DELETE NO ACTION,
+    CONSTRAINT order_data_user_id_fkey FOREIGN KEY (user_id)
+        REFERENCES public.user_data (id) MATCH SIMPLE
+        ON UPDATE NO ACTION
+        ON DELETE NO ACTION,
+    CONSTRAINT order_data_quantity_check CHECK (quantity > 0)
+)
+
+TABLESPACE pg_default;
+
+ALTER TABLE IF EXISTS public.order_data
+    OWNER to postgres;
+
+
+
+
+
+
+--views:-
+
+
+
+
+
+-- View: public.active_cart_for_buy
+
+-- DROP VIEW public.active_cart_for_buy;
+
+CREATE OR REPLACE VIEW public.active_cart_for_buy
+ AS
+ SELECT cart_data.user_id,
+    cart_data.cloth_id,
+    cart_data.quantity
+   FROM cart_data
+  WHERE cart_data.status::text = 'active'::text AND cart_data.purpose::text = 'buy'::text;
+
+ALTER TABLE public.active_cart_for_buy
+    OWNER TO postgres;
+
+-- View: public.active_cart_for_rent
+
+-- DROP VIEW public.active_cart_for_rent;
+
+CREATE OR REPLACE VIEW public.active_cart_for_rent
+ AS
+ SELECT cart_data.user_id,
+    cart_data.cloth_id,
+    cart_data.quantity,
+    cart_data.renting_date,
+    cart_data.returning_date
+   FROM cart_data
+  WHERE cart_data.status::text = 'active'::text AND cart_data.purpose::text = 'rent'::text;
+
+ALTER TABLE public.active_cart_for_rent
+    OWNER TO postgres;
+
+-- View: public.active_cloths
+
+-- DROP VIEW public.active_cloths;
+
+CREATE OR REPLACE VIEW public.active_cloths
+ AS
+ SELECT cloth_data.id AS cloth_id,
+    cloth_data.name AS cloth_name,
+    cloth_data.renting_price,
+    cloth_data.selling_price,
+    cloth_data.stock,
+    cloth_data.category,
+    cloth_data.section,
+    cloth_data.gender,
+    cloth_data.seller_id,
+    cloth_data.description,
+    cloth_data.image
+   FROM cloth_data
+  WHERE cloth_data.status::text = ANY (ARRAY['active'::character varying::text, 'blocked'::character varying::text]);
+
+ALTER TABLE public.active_cloths
+    OWNER TO postgres;
+
+
+
+
+-- View: public.admins
+
+-- DROP VIEW public.admins;
+
+CREATE OR REPLACE VIEW public.admins
+ AS
+ SELECT user_data.id AS admin_id,
+    user_data.username,
+    user_data.password
+   FROM user_data
+  WHERE user_data.role::text = 'admin'::text;
+
+ALTER TABLE public.admins
+    OWNER TO postgres;
+
+-- View: public.blocked_cloths
+
+-- DROP VIEW public.blocked_cloths;
+
+CREATE OR REPLACE VIEW public.blocked_cloths
+ AS
+ SELECT cloth_data.id AS cloth_id,
+    cloth_data.name AS cloth_name,
+    cloth_data.renting_price,
+    cloth_data.selling_price,
+    cloth_data.stock,
+    cloth_data.category,
+    cloth_data.section,
+    cloth_data.gender,
+    cloth_data.seller_id,
+    cloth_data.description,
+    cloth_data.image
+   FROM cloth_data
+  WHERE cloth_data.status::text = 'blocked'::text;
+
+ALTER TABLE public.blocked_cloths
+    OWNER TO postgres;
+
+
+
+
+
+
+-- View: public.cloths
+
+-- DROP VIEW public.cloths;
+
+CREATE OR REPLACE VIEW public.cloths
+ AS
+ SELECT cloth_data.id AS cloth_id,
+    cloth_data.name AS cloth_name,
+    cloth_data.renting_price,
+    cloth_data.selling_price,
+    cloth_data.stock,
+    cloth_data.category,
+    cloth_data.section,
+    cloth_data.gender,
+    cloth_data.seller_id,
+    cloth_data.description,
+    cloth_data.image,
+    cloth_data.status
+   FROM cloth_data;
+
+ALTER TABLE public.cloths
+    OWNER TO postgres;
+
+-- View: public.deactive_delivery_boys
+
+-- DROP VIEW public.deactive_delivery_boys;
+
+CREATE OR REPLACE VIEW public.deactive_delivery_boys
+ AS
+ SELECT user_data.id AS user_id,
+    user_data.name,
+    user_data.username,
+    user_data.email,
+    user_data.mobile_number,
+    concat(user_data.location, ', ', 'Near- ', user_data.landmark, ', ', user_data.district, ', ', user_data.state, ', ', user_data.country, ' - ', user_data.pincode) AS address,
+    user_data.image,
+    user_data.aadhar_number
+   FROM user_data
+  WHERE user_data.role::text = 'delivery_boy'::text;
+
+ALTER TABLE public.deactive_delivery_boys
+    OWNER TO postgres;
+-- View: public.deactive_sellers
+
+-- DROP VIEW public.deactive_sellers;
+
+CREATE OR REPLACE VIEW public.deactive_sellers
+ AS
+ SELECT user_data.id AS seller_id,
+    user_data.name,
+    user_data.username,
+    user_data.email,
+    user_data.mobile_number,
+    concat(user_data.location, ', ', 'Near- ', user_data.landmark, ', ', user_data.district, ', ', user_data.state, ', ', user_data.country, ' - ', user_data.pincode) AS address,
+    user_data.image,
+    user_data.aadhar_number
+   FROM user_data
+  WHERE user_data.role::text = 'seller'::text;
+
+ALTER TABLE public.deactive_sellers
+    OWNER TO postgres;
+-- View: public.deactive_users
+
+-- DROP VIEW public.deactive_users;
+
+CREATE OR REPLACE VIEW public.deactive_users
+ AS
+ SELECT user_data.id AS user_id,
+    user_data.name,
+    user_data.username,
+    user_data.email,
+    user_data.mobile_number,
+    concat(user_data.location, ', ', 'Near- ', user_data.landmark, ', ', user_data.district, ', ', user_data.state, ', ', user_data.country, ' - ', user_data.pincode) AS address,
+    user_data.image,
+    user_data.aadhar_number
+   FROM user_data
+  WHERE user_data.role::text = 'user'::text;
+
+ALTER TABLE public.deactive_users
+    OWNER TO postgres;
+
+-- View: public.delivery_boys
+
+-- DROP VIEW public.delivery_boys;
+
+CREATE OR REPLACE VIEW public.delivery_boys
+ AS
+ SELECT user_data.id AS user_id,
+    user_data.name,
+    user_data.username,
+    user_data.password,
+    user_data.email,
+    user_data.mobile_number,
+    user_data.location,
+    user_data.landmark,
+    user_data.district,
+    user_data.state,
+    user_data.country,
+    user_data.pincode,
+    user_data.image,
+    user_data.aadhar_number,
+    user_data.aadhar_verified,
+    user_data.email_verified,
+    user_data.mobile_verified,
+    user_data.status
+   FROM user_data
+  WHERE user_data.role::text = 'delivery_boy'::text;
+
+ALTER TABLE public.delivery_boys
+    OWNER TO postgres;
+
+
+-- View: public.sellers
+
+-- DROP VIEW public.sellers;
+
+CREATE OR REPLACE VIEW public.sellers
+ AS
+ SELECT user_data.id AS seller_id,
+    user_data.name,
+    user_data.username,
+    user_data.password,
+    user_data.email,
+    user_data.mobile_number,
+    user_data.location,
+    user_data.landmark,
+    user_data.district,
+    user_data.state,
+    user_data.country,
+    user_data.pincode,
+    user_data.image,
+    user_data.aadhar_number,
+    user_data.aadhar_verified,
+    user_data.email_verified,
+    user_data.mobile_verified,
+    user_data.status
+   FROM user_data
+  WHERE user_data.role::text = 'seller'::text;
+
+ALTER TABLE public.sellers
+    OWNER TO postgres;
+
+-- View: public.users
+
+-- DROP VIEW public.users;
+
+CREATE OR REPLACE VIEW public.users
+ AS
+ SELECT user_data.id AS user_id,
+    user_data.name,
+    user_data.username,
+    user_data.password,
+    user_data.email,
+    user_data.mobile_number,
+    user_data.location,
+    user_data.landmark,
+    user_data.district,
+    user_data.state,
+    user_data.country,
+    user_data.pincode,
+    user_data.image,
+    user_data.aadhar_number,
+    user_data.aadhar_verified,
+    user_data.email_verified,
+    user_data.mobile_verified,
+    user_data.status
+   FROM user_data
+  WHERE user_data.role::text = 'user'::text;
+
+ALTER TABLE public.users
+    OWNER TO postgres;
+
+-- View: public.active_delivery_boys
+
+-- DROP VIEW public.active_delivery_boys;
+
+CREATE OR REPLACE VIEW public.active_delivery_boys
+ AS
+ SELECT delivery_boys.user_id,
+    delivery_boys.name,
+    delivery_boys.username,
+    delivery_boys.email,
+    delivery_boys.mobile_number,
+    concat(delivery_boys.location, ', ', 'Near- ', delivery_boys.landmark, ', ', delivery_boys.district, ', ', delivery_boys.state, ', ', delivery_boys.country, ' - ', delivery_boys.pincode) AS address,
+    delivery_boys.image,
+    delivery_boys.aadhar_number
+   FROM delivery_boys
+  WHERE delivery_boys.status::text = 'active'::text;
+
+ALTER TABLE public.active_delivery_boys
+    OWNER TO postgres;
+
+-- View: public.active_sellers
+
+-- DROP VIEW public.active_sellers;
+
+CREATE OR REPLACE VIEW public.active_sellers
+ AS
+ SELECT sellers.seller_id,
+    sellers.name,
+    sellers.username,
+    sellers.email,
+    sellers.mobile_number,
+    concat(sellers.location, ', ', 'Near- ', sellers.landmark, ', ', sellers.district, ', ', sellers.state, ', ', sellers.country, ' - ', sellers.pincode) AS address,
+    sellers.image,
+    sellers.aadhar_number
+   FROM sellers
+  WHERE sellers.status::text = 'active'::text;
+
+ALTER TABLE public.active_sellers
+    OWNER TO postgres;
+-- View: public.active_users
+
+-- DROP VIEW public.active_users;
+
+CREATE OR REPLACE VIEW public.active_users
+ AS
+ SELECT users.user_id,
+    users.name,
+    users.username,
+    users.email,
+    users.mobile_number,
+    concat(users.location, ', ', 'Near- ', users.landmark, ', ', users.district, ', ', users.state, ', ', users.country, ' - ', users.pincode) AS address,
+    users.image,
+    users.aadhar_number
+   FROM users
+  WHERE users.status::text = 'active'::text;
+
+ALTER TABLE public.active_users
+    OWNER TO postgres;
+	
+-- View: public.blocked_delivery_boys
+
+-- DROP VIEW public.blocked_delivery_boys;
+
+CREATE OR REPLACE VIEW public.blocked_delivery_boys
+ AS
+ SELECT delivery_boys.user_id,
+    delivery_boys.name,
+    delivery_boys.username,
+    delivery_boys.email,
+    delivery_boys.mobile_number,
+    concat(delivery_boys.location, ', ', 'Near- ', delivery_boys.landmark, ', ', delivery_boys.district, ', ', delivery_boys.state, ', ', delivery_boys.country, ' - ', delivery_boys.pincode) AS address,
+    delivery_boys.image,
+    delivery_boys.aadhar_number
+   FROM delivery_boys
+  WHERE delivery_boys.status::text = 'blocked'::text;
+
+ALTER TABLE public.blocked_delivery_boys
+    OWNER TO postgres;
+-- View: public.blocked_sellers
+
+-- DROP VIEW public.blocked_sellers;
+
+CREATE OR REPLACE VIEW public.blocked_sellers
+ AS
+ SELECT sellers.seller_id,
+    sellers.name,
+    sellers.username,
+    sellers.email,
+    sellers.mobile_number,
+    concat(sellers.location, ', ', 'Near- ', sellers.landmark, ', ', sellers.district, ', ', sellers.state, ', ', sellers.country, ' - ', sellers.pincode) AS address,
+    sellers.image,
+    sellers.aadhar_number
+   FROM sellers
+  WHERE sellers.status::text = 'blocked'::text;
+
+ALTER TABLE public.blocked_sellers
+    OWNER TO postgres;
+-- View: public.blocked_users
+
+-- DROP VIEW public.blocked_users;
+
+CREATE OR REPLACE VIEW public.blocked_users
+ AS
+ SELECT users.user_id,
+    users.name,
+    users.username,
+    users.email,
+    users.mobile_number,
+    concat(users.location, ', ', 'Near- ', users.landmark, ', ', users.district, ', ', users.state, ', ', users.country, ' - ', users.pincode) AS address,
+    users.image,
+    users.aadhar_number
+   FROM users
+  WHERE users.status::text = 'blocked'::text;
+
+ALTER TABLE public.blocked_users
+    OWNER TO postgres;
+-- PROCEDURE: public.add_new_cloth(character varying, double precision, double precision, integer, character varying, character varying, character varying, integer, character varying, character varying)
+
+-- DROP PROCEDURE IF EXISTS public.add_new_cloth(character varying, double precision, double precision, integer, character varying, character varying, character varying, integer, character varying, character varying);
+
+CREATE OR REPLACE PROCEDURE public.add_new_cloth(
+	IN _name character varying,
+	IN _renting_price double precision,
+	IN _selling_price double precision,
+	IN _stock integer,
+	IN _category character varying,
+	IN _section character varying,
+	IN _gender character varying,
+	IN _seller_id integer,
+	IN _description character varying,
+	IN _image character varying)
+LANGUAGE 'plpgsql'
+AS $BODY$
+	BEGIN
+		INSERT INTO CLOTH_DATA(NAME, RENTING_PRICE, SELLING_PRICE, 
+							   STOCK, CATEGORY, SECTION, GENDER, 
+							   SELLER_ID, DESCRIPTION, IMAGE)
+		VALUES(_name, _renting_price, _selling_price, _stock, _category, 
+			  _section, _gender, _seller_id, _description, _image);
+	END;
+$BODY$;
+ALTER PROCEDURE public.add_new_cloth(character varying, double precision, double precision, integer, character varying, character varying, character varying, integer, character varying, character varying)
+    OWNER TO postgres;
+
+-- PROCEDURE: public.add_to_cart_for_buy(integer, integer)
+
+-- DROP PROCEDURE IF EXISTS public.add_to_cart_for_buy(integer, integer);
+
+CREATE OR REPLACE PROCEDURE public.add_to_cart_for_buy(
+	IN _user_id integer,
+	IN _cloth_id integer)
+LANGUAGE 'sql'
+AS $BODY$
+	INSERT INTO CART_DATA
+	(USER_ID, CLOTH_ID, PURPOSE)
+	VALUES
+	(_USER_ID, _CLOTH_ID, 'buy');
+$BODY$;
+ALTER PROCEDURE public.add_to_cart_for_buy(integer, integer)
+    OWNER TO postgres;
+-- PROCEDURE: public.add_to_cart_for_rent(integer, integer)
+
+-- DROP PROCEDURE IF EXISTS public.add_to_cart_for_rent(integer, integer);
+
+CREATE OR REPLACE PROCEDURE public.add_to_cart_for_rent(
+	IN _user_id integer,
+	IN _cloth_id integer)
+LANGUAGE 'sql'
+AS $BODY$
+	INSERT INTO CART_DATA
+	(USER_ID, CLOTH_ID, PURPOSE, RENTING_DATE, RETURNING_DATE)
+	VALUES
+	(_USER_ID, _CLOTH_ID, 'rent', CURRENT_DATE, CURRENT_DATE + 1);
+$BODY$;
+ALTER PROCEDURE public.add_to_cart_for_rent(integer, integer)
+    OWNER TO postgres;
+-- PROCEDURE: public.block_cloth(integer)
+
+-- DROP PROCEDURE IF EXISTS public.block_cloth(integer);
+
+CREATE OR REPLACE PROCEDURE public.block_cloth(
+	IN _id integer)
+LANGUAGE 'sql'
+AS $BODY$
+	UPDATE CLOTH_DATA SET STATUS = 'blocked' where id = _id;
+$BODY$;
+ALTER PROCEDURE public.block_cloth(integer)
+    OWNER TO postgres;
+-- PROCEDURE: public.block_delivery_boy(integer)
+
+-- DROP PROCEDURE IF EXISTS public.block_delivery_boy(integer);
+
+CREATE OR REPLACE PROCEDURE public.block_delivery_boy(
+	IN _id integer)
+LANGUAGE 'sql'
+AS $BODY$
+	UPDATE USER_DATA SET STATUS = 'blocked' where id = _id;
+$BODY$;
+ALTER PROCEDURE public.block_delivery_boy(integer)
+    OWNER TO postgres;
+-- PROCEDURE: public.block_seller(integer)
+
+-- DROP PROCEDURE IF EXISTS public.block_seller(integer);
+
+CREATE OR REPLACE PROCEDURE public.block_seller(
+	IN _id integer)
+LANGUAGE 'sql'
+AS $BODY$
+	UPDATE USER_DATA SET STATUS = 'blocked' where id = _id;
+$BODY$;
+ALTER PROCEDURE public.block_seller(integer)
+    OWNER TO postgres;
+-- PROCEDURE: public.block_user(integer)
+
+-- DROP PROCEDURE IF EXISTS public.block_user(integer);
+
+CREATE OR REPLACE PROCEDURE public.block_user(
+	IN _id integer)
+LANGUAGE 'sql'
+AS $BODY$
+	UPDATE USER_DATA SET STATUS='blocked' where id= _id;
+$BODY$;
+ALTER PROCEDURE public.block_user(integer)
+    OWNER TO postgres;
+-- PROCEDURE: public.delete_cloth(integer)
+
+-- DROP PROCEDURE IF EXISTS public.delete_cloth(integer);
+
+CREATE OR REPLACE PROCEDURE public.delete_cloth(
+	IN _id integer)
+LANGUAGE 'sql'
+AS $BODY$
+	UPDATE CLOTH_DATA SET STATUS = 'deactive' where id = _id;
+$BODY$;
+ALTER PROCEDURE public.delete_cloth(integer)
+    OWNER TO postgres;
+-- PROCEDURE: public.remove_from_cart_for_buy(integer, integer)
+
+-- DROP PROCEDURE IF EXISTS public.remove_from_cart_for_buy(integer, integer);
+
+CREATE OR REPLACE PROCEDURE public.remove_from_cart_for_buy(
+	IN _user_id integer,
+	IN _cloth_id integer)
+LANGUAGE 'sql'
+AS $BODY$
+	UPDATE CART_DATA SET STATUS = 'deactive' WHERE USER_ID = _USER_ID AND CLOTH_ID = _CLOTH_ID;
+$BODY$;
+ALTER PROCEDURE public.remove_from_cart_for_buy(integer, integer)
+    OWNER TO postgres;
+-- PROCEDURE: public.remove_from_cart_for_rent(integer, integer)
+
+-- DROP PROCEDURE IF EXISTS public.remove_from_cart_for_rent(integer, integer);
+
+CREATE OR REPLACE PROCEDURE public.remove_from_cart_for_rent(
+	IN _user_id integer,
+	IN _cloth_id integer)
+LANGUAGE 'sql'
+AS $BODY$
+	UPDATE CART_DATA SET STATUS = 'deactive' WHERE USER_ID = _USER_ID AND CLOTH_ID = _CLOTH_ID;
+$BODY$;
+ALTER PROCEDURE public.remove_from_cart_for_rent(integer, integer)
+    OWNER TO postgres;
+-- PROCEDURE: public.unblock_cloth(integer)
+
+-- DROP PROCEDURE IF EXISTS public.unblock_cloth(integer);
+
+CREATE OR REPLACE PROCEDURE public.unblock_cloth(
+	IN _id integer)
+LANGUAGE 'sql'
+AS $BODY$
+	UPDATE CLOTH_DATA SET STATUS = 'active' where id = _id;
+$BODY$;
+ALTER PROCEDURE public.unblock_cloth(integer)
+    OWNER TO postgres;
+-- PROCEDURE: public.unblock_delivery_boy(integer)
+
+-- DROP PROCEDURE IF EXISTS public.unblock_delivery_boy(integer);
+
+CREATE OR REPLACE PROCEDURE public.unblock_delivery_boy(
+	IN _id integer)
+LANGUAGE 'sql'
+AS $BODY$
+	UPDATE USER_DATA SET STATUS = 'active' where id = _id;
+$BODY$;
+ALTER PROCEDURE public.unblock_delivery_boy(integer)
+    OWNER TO postgres;
+-- PROCEDURE: public.unblock_seller(integer)
+
+-- DROP PROCEDURE IF EXISTS public.unblock_seller(integer);
+
+CREATE OR REPLACE PROCEDURE public.unblock_seller(
+	IN _id integer)
+LANGUAGE 'sql'
+AS $BODY$
+	UPDATE USER_DATA SET STATUS = 'active' where id = _id;
+$BODY$;
+ALTER PROCEDURE public.unblock_seller(integer)
+    OWNER TO postgres;
+-- PROCEDURE: public.unblock_user(integer)
+
+-- DROP PROCEDURE IF EXISTS public.unblock_user(integer);
+
+CREATE OR REPLACE PROCEDURE public.unblock_user(
+	IN _id integer)
+LANGUAGE 'sql'
+AS $BODY$
+	UPDATE USER_DATA SET STATUS = 'active' where id = _id;
+$BODY$;
+ALTER PROCEDURE public.unblock_user(integer)
+    OWNER TO postgres;
+-- PROCEDURE: public.update_cloth_details(integer, character varying, double precision, double precision, integer, character varying, character varying, character varying, character varying)
+
+-- DROP PROCEDURE IF EXISTS public.update_cloth_details(integer, character varying, double precision, double precision, integer, character varying, character varying, character varying, character varying);
+
+CREATE OR REPLACE PROCEDURE public.update_cloth_details(
+	IN _id integer,
+	IN _name character varying,
+	IN _renting_price double precision,
+	IN _selling_price double precision,
+	IN _stock integer,
+	IN _category character varying,
+	IN _section character varying,
+	IN _gender character varying,
+	IN _description character varying)
+LANGUAGE 'plpgsql'
+AS $BODY$
+	BEGIN
+		UPDATE CLOTH_DATA SET
+		NAME = _name,
+		RENTING_PRICE = _renting_price,
+		SELLING_PRICE = _selling_price,
+		STOCK = _stock,
+		CATEGORY = _category,
+		SECTION = _section,
+		GENDER = _gender,
+		DESCRIPTION = _description
+		WHERE ID = _id;
+	END;
+$BODY$;
+ALTER PROCEDURE public.update_cloth_details(integer, character varying, double precision, double precision, integer, character varying, character varying, character varying, character varying)
+    OWNER TO postgres;
+-- PROCEDURE: public.update_cloth_image(integer, character varying)
+
+-- DROP PROCEDURE IF EXISTS public.update_cloth_image(integer, character varying);
+
+CREATE OR REPLACE PROCEDURE public.update_cloth_image(
+	IN _id integer,
+	IN _image character varying)
+LANGUAGE 'plpgsql'
+AS $BODY$
+	BEGIN
+		UPDATE CLOTH_DATA SET
+		IMAGE = _image
+		WHERE ID = _id;
+	END;
+$BODY$;
+ALTER PROCEDURE public.update_cloth_image(integer, character varying)
+    OWNER TO postgres;
+-- FUNCTION: public.create_new_delivery_boy(character varying, character varying, character varying, character varying, character)
+
+-- DROP FUNCTION IF EXISTS public.create_new_delivery_boy(character varying, character varying, character varying, character varying, character);
+
+CREATE OR REPLACE FUNCTION public.create_new_delivery_boy(
+	name character varying,
+	user_name character varying,
+	password character varying,
+	email character varying,
+	mobile character)
+    RETURNS TABLE(id integer) 
+    LANGUAGE 'plpgsql'
+    COST 100
+    VOLATILE PARALLEL UNSAFE
+    ROWS 1000
+
+AS $BODY$
+	BEGIN
+		INSERT INTO USER_DATA(NAME, USERNAME, PASSWORD, EMAIL, MOBILE_NUMBER, ROLE)
+		VALUES(NAME, USER_NAME, PASSWORD, EMAIL, MOBILE, 'delivery_boy');
+		
+		RETURN QUERY SELECT USER_ID FROM DELIVERY_BOYS WHERE USERNAME = USER_NAME;
+	END;
+$BODY$;
+
+ALTER FUNCTION public.create_new_delivery_boy(character varying, character varying, character varying, character varying, character)
+    OWNER TO postgres;
+-- FUNCTION: public.create_new_seller(character varying, character varying, character varying, character varying, character)
+
+-- DROP FUNCTION IF EXISTS public.create_new_seller(character varying, character varying, character varying, character varying, character);
+
+CREATE OR REPLACE FUNCTION public.create_new_seller(
+	name character varying,
+	user_name character varying,
+	password character varying,
+	email character varying,
+	mobile character)
+    RETURNS TABLE(id integer) 
+    LANGUAGE 'plpgsql'
+    COST 100
+    VOLATILE PARALLEL UNSAFE
+    ROWS 1000
+
+AS $BODY$
+	BEGIN
+		INSERT INTO USER_DATA(NAME, USERNAME, PASSWORD, EMAIL, MOBILE_NUMBER, ROLE)
+		VALUES(NAME, USER_NAME, PASSWORD, EMAIL, MOBILE, 'seller');
+		
+		RETURN QUERY SELECT SELLER_ID FROM SELLERS WHERE USERNAME = USER_NAME;
+	END;
+$BODY$;
+
+ALTER FUNCTION public.create_new_seller(character varying, character varying, character varying, character varying, character)
+    OWNER TO postgres;
+-- FUNCTION: public.create_new_user(character varying, character varying, character varying, character varying, character)
+
+-- DROP FUNCTION IF EXISTS public.create_new_user(character varying, character varying, character varying, character varying, character);
+
+CREATE OR REPLACE FUNCTION public.create_new_user(
+	name character varying,
+	user_name character varying,
+	password character varying,
+	email character varying,
+	mobile character)
+    RETURNS TABLE(id integer) 
+    LANGUAGE 'plpgsql'
+    COST 100
+    VOLATILE PARALLEL UNSAFE
+    ROWS 1000
+
+AS $BODY$
+	BEGIN
+		INSERT INTO USER_DATA(NAME, USERNAME, PASSWORD, EMAIL, MOBILE_NUMBER)
+		VALUES(NAME, USER_NAME, PASSWORD, EMAIL, MOBILE);
+		
+		RETURN QUERY SELECT USER_ID FROM USERS WHERE USERNAME = USER_NAME;
+	END;
+$BODY$;
+
+ALTER FUNCTION public.create_new_user(character varying, character varying, character varying, character varying, character)
+    OWNER TO postgres;
+-- FUNCTION: public.get_cloths_for_seller(integer, integer, integer)
+
+-- DROP FUNCTION IF EXISTS public.get_cloths_for_seller(integer, integer, integer);
+
+CREATE OR REPLACE FUNCTION public.get_cloths_for_seller(
+	_seller_id integer,
+	page_no integer,
+	_limit integer)
+    RETURNS TABLE(cloth_id integer, cloth_name character varying, cloth_renting_price double precision, cloth_selling_price double precision, cloth_stock integer, cloth_category character varying, cloth_section character varying, cloth_gender character varying, cloth_description character varying, cloth_image character varying, cloth_status character varying) 
+    LANGUAGE 'plpgsql'
+    COST 100
+    VOLATILE PARALLEL UNSAFE
+    ROWS 1000
+
+AS $BODY$
+begin
+	return query 
+	select id, name, renting_price, selling_price, stock,
+	category, section, gender, description, image, status 
+	from cloth_data where status <> 'deactive' and seller_id = _seller_id
+	order by id
+	limit _limit offset page_no;
+end;
+$BODY$;
+
+ALTER FUNCTION public.get_cloths_for_seller(integer, integer, integer)
+    OWNER TO postgres;
+-- FUNCTION: public.get_cloths_for_user(integer, integer)
+
+-- DROP FUNCTION IF EXISTS public.get_cloths_for_user(integer, integer);
+
+CREATE OR REPLACE FUNCTION public.get_cloths_for_user(
+	page_no integer,
+	_limit integer)
+    RETURNS TABLE(cloth_id integer, cloth_name character varying, cloth_renting_price double precision, cloth_selling_price double precision, cloth_stock integer, cloth_description character varying, cloth_image character varying) 
+    LANGUAGE 'plpgsql'
+    COST 100
+    VOLATILE PARALLEL UNSAFE
+    ROWS 1000
+
+AS $BODY$
+begin
+	return query 
+	select id, name, renting_price, selling_price, stock, description, image 
+	from cloth_data where status = 'active'
+	order by id
+	limit _limit offset page_no;
+end;
+$BODY$;
+
+ALTER FUNCTION public.get_cloths_for_user(integer, integer)
+    OWNER TO postgres;
+-- FUNCTION: public.get_login_detail(character varying)
+
+-- DROP FUNCTION IF EXISTS public.get_login_detail(character varying);
+
+CREATE OR REPLACE FUNCTION public.get_login_detail(
+	_email character varying)
+    RETURNS TABLE(user_id integer, user_name character varying, user_username character varying, user_role character varying, user_email_verified boolean, user_status character varying) 
+    LANGUAGE 'plpgsql'
+    COST 100
+    VOLATILE PARALLEL UNSAFE
+    ROWS 1000
+
+AS $BODY$
+	BEGIN
+		RETURN QUERY SELECT ID, name, USERNAME, ROLE, EMAIL_VERIFIED, STATUS FROM USER_DATA WHERE email = _email;
+	END;
+$BODY$;
+
+ALTER FUNCTION public.get_login_detail(character varying)
+    OWNER TO postgres;
+-- FUNCTION: public.match_email_password(character varying, character varying)
+
+-- DROP FUNCTION IF EXISTS public.match_email_password(character varying, character varying);
+
+CREATE OR REPLACE FUNCTION public.match_email_password(
+	user_email character varying,
+	user_password character varying)
+    RETURNS TABLE(matched boolean, user_status character varying) 
+    LANGUAGE 'plpgsql'
+    COST 100
+    VOLATILE PARALLEL UNSAFE
+    ROWS 1000
+
+AS $BODY$
+begin
+		return query SELECT password = user_password, status FROM USER_DATA WHERE email = USER_email;
+		end;
+$BODY$;
+
+ALTER FUNCTION public.match_email_password(character varying, character varying)
+    OWNER TO postgres;
+-- FUNCTION: public.match_username_password(character varying, character varying)
+
+-- DROP FUNCTION IF EXISTS public.match_username_password(character varying, character varying);
+
+CREATE OR REPLACE FUNCTION public.match_username_password(
+	user_name character varying,
+	user_password character varying)
+    RETURNS TABLE(matched boolean) 
+    LANGUAGE 'plpgsql'
+    COST 100
+    VOLATILE PARALLEL UNSAFE
+    ROWS 1000
+
+AS $BODY$
+begin
+		return query SELECT password = user_password FROM USER_DATA WHERE USERNAME = USER_NAME;
+		end;
+$BODY$;
+
+ALTER FUNCTION public.match_username_password(character varying, character varying)
+    OWNER TO postgres;
